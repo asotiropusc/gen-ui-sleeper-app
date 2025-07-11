@@ -1,18 +1,11 @@
 import { fetchSleeperUser } from "@/lib/api/sleeper/sleeper-api";
-import { createClient } from "../server";
+import { SupabaseClient } from "@supabase/supabase-js";
 
-export async function upsertUser(username: string) {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    throw new Error("User must be authenticated to insert user data.");
-  }
-
+export async function upsertUser(
+  supabase: SupabaseClient,
+  authId: string,
+  username: string
+) {
   const sleeperUser = await fetchSleeperUser(username);
 
   if (!sleeperUser) {
@@ -22,7 +15,7 @@ export async function upsertUser(username: string) {
   const { error } = await supabase.from("users").upsert(
     [
       {
-        id: user.id,
+        id: authId,
         sleeper_user_id: sleeperUser.user_id,
         username: sleeperUser.username,
         avatar_id: sleeperUser.avatar,
@@ -33,6 +26,6 @@ export async function upsertUser(username: string) {
 
   if (error) {
     const msg = error.message ?? JSON.stringify(error);
-    throw new Error(`Failed to insert user ${user.id}: ${msg}`);
+    throw new Error(`Failed to insert user ${authId}: ${msg}`);
   }
 }

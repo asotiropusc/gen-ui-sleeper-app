@@ -1,5 +1,4 @@
 import { fetchSleeperPlayers } from "@/lib/api/sleeper/sleeper-api";
-import { createClient } from "../server";
 import { Player, SyncState } from "@/types/internal/Player";
 import { Player as ExternalPlayer } from "@/types/external/Player";
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -31,10 +30,10 @@ async function upsertChunk(
   }
 }
 
-export async function upsertAllPlayers(): Promise<void> {
-  const supabase = await createClient();
-
-  const syncState = await getSyncStateFor("players");
+export async function upsertAllPlayers(
+  supabase: SupabaseClient
+): Promise<void> {
+  const syncState = await getSyncStateFor(supabase, "players");
 
   if (syncState?.last_updated_at) {
     const lastUpdated = new Date(syncState.last_updated_at);
@@ -89,41 +88,17 @@ export async function upsertAllPlayers(): Promise<void> {
     await upsertChunk(supabase, chunk, i / CHUNK_SIZE);
   }
 
-  await supabase.from("sync_state").upsert({ source: "players" });
+  await supabase
+    .from("sync_state")
+    .upsert({ source: "players", last_updated_at: new Date().toISOString() });
 
   console.info("upsertAllPlayers: all chunks processed");
 }
 
-export async function getPlayersByIds(playerIds: string[]): Promise<Player[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("players")
-    .select("*")
-    .in("player_id", playerIds);
-
-  if (error) {
-    throw new Error(`getPlayersByIds: ${error.message}`);
-  }
-
-  return (data || []) as Player[];
-}
-
-export async function getAllPlayers(): Promise<Player[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from("players").select("*");
-
-  if (error) {
-    throw new Error(`getAllPlayers failed: ${error.message}`);
-  }
-
-  return (data ?? []) as Player[];
-}
-
 export async function getSyncStateFor(
+  supabase: SupabaseClient,
   column: string
 ): Promise<Partial<SyncState> | null> {
-  const supabase = await createClient();
-
   const { data: syncState, error } = await supabase
     .from("sync_state")
     .select("last_updated_at")

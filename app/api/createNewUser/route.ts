@@ -1,63 +1,48 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import {
-  initializeUserData,
-  //   populatePlayoffMatchupsForUser,
-} from "@/lib/services/initializeUserData";
-import { createClient } from "@/lib/supabase/server";
+import { NextRequest } from "next/server";
+import { initializeUserData } from "@/lib/services/initializeUserData";
+import { requireUser } from "@/lib/supabase/auth";
 
 interface InitUserDataBody {
   sleeperUsername: string;
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json(
-      { success: false, error: "Not authenticated" },
-      { status: 401 }
-    );
-  }
-  let body: InitUserDataBody;
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json(
-      { success: false, error: "Invalid JSON payload" },
-      { status: 400 }
-    );
-  }
+    const { supabase, user } = await requireUser();
 
-  const { sleeperUsername } = body;
-  if (
-    typeof sleeperUsername !== "string" ||
-    sleeperUsername.trim().length === 0
-  ) {
-    return NextResponse.json(
-      { success: false, error: "Missing or invalid `sleeperUsername`" },
-      { status: 400 }
-    );
-  }
+    const body: InitUserDataBody = await request.json().catch(() => {
+      throw NextResponse.json(
+        { success: false, error: "Invalid JSON payload" },
+        { status: 400 }
+      );
+    });
 
-  try {
-    // const result = await populatePlayoffMatchupsForUser();
-    const result = await initializeUserData(sleeperUsername.trim());
+    const sleeperUsername = body.sleeperUsername?.trim();
+    if (!sleeperUsername) {
+      throw NextResponse.json(
+        { success: false, error: "Missing or invalid `sleeperUsername`" },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json(result);
+    const result = await initializeUserData(supabase, user.id, sleeperUsername);
+
+    if (!result.success) {
+      console.error("initializeUserData failed:", result.error);
+      throw NextResponse.json(
+        { success: false, error: result.error },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("initializeUserData threw:", err);
+    if (err instanceof NextResponse) throw err;
+
+    console.error("Unhandled error in createNewUser:", err);
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          err instanceof Error
-            ? err.message
-            : "Unknown error during initialization",
-      },
+      { success: false, error: err instanceof Error ? err.message : "Unknown" },
       { status: 500 }
     );
   }

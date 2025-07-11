@@ -1,13 +1,14 @@
+import { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "../server";
 
-export async function getAuthenticatedUserSleeperId(): Promise<string> {
-  const supabase = await createClient();
-  const authUserId = await getAuthenticatedUserId();
-
+export async function getAuthenticatedUserSleeperId(
+  supabase: SupabaseClient,
+  authId: string
+): Promise<string> {
   const { data, error } = await supabase
     .from("users")
     .select("sleeper_user_id")
-    .eq("id", authUserId)
+    .eq("id", authId)
     .single();
 
   if (error || !data) {

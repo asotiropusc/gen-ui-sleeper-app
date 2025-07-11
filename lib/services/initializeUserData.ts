@@ -1,5 +1,5 @@
+import { SupabaseClient } from "@supabase/supabase-js";
 import {
-  getAllLeaguesForUser,
   populateAllLeagueMembersForUser,
   populateAllLeaguesForUser,
 } from "../supabase/queries/leagues";
@@ -24,27 +24,33 @@ type InitializeUserDataResults =
  * Should be called once after the user logs in and provides their Sleeper username.
  */
 export async function initializeUserData(
+  supabase: SupabaseClient,
+  authId: string,
   sleeperUsername: string
 ): Promise<InitializeUserDataResults> {
   try {
     // 1. Ensure the user record exists
-    await upsertUser(sleeperUsername);
+    await upsertUser(supabase, authId, sleeperUsername);
 
     // 2. Populate global players table (first user or if stale)
-    await upsertAllPlayers();
+    await upsertAllPlayers(supabase);
 
     // 3. Fetch and upsert all leagues for this user
-    const leagueIds = await populateAllLeaguesForUser();
+    const newLeagueIds = await populateAllLeaguesForUser(supabase, authId);
 
-    if (leagueIds.length) {
+    if (newLeagueIds.length) {
       // 4. Populate league members
-      await populateAllLeagueMembersForUser(leagueIds);
+      await populateAllLeagueMembersForUser(supabase, newLeagueIds);
 
       // 5. Populate weekly matchups and players
-      await populateAllMatchupsForUser(leagueIds);
+      await populateAllMatchupsForUser(supabase, newLeagueIds);
 
       // 6. Populate playoff matchups
-      await populateAllPlayoffMatchupsForUser(leagueIds);
+      await populateAllPlayoffMatchupsForUser(supabase, newLeagueIds);
+    } else {
+      console.info(
+        `initializeUserData: no new leagues to insert. Skipping members & matchups population.`
+      );
     }
 
     return { success: true };
@@ -52,23 +58,6 @@ export async function initializeUserData(
     return {
       success: false,
       error: (err as Error).message || "Unknown error during initialization",
-    };
-  }
-}
-
-type PlayoffImportResult =
-  | { success: true }
-  | { success: false; error: string };
-
-export async function populatePlayoffMatchupsForUser(): Promise<PlayoffImportResult> {
-  try {
-    const userLeagueIds = await getAllLeaguesForUser();
-    await populateAllPlayoffMatchupsForUser(userLeagueIds);
-    return { success: true };
-  } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : String(err),
     };
   }
 }

@@ -4,11 +4,7 @@ import {
   fetchSleeperUserCurrentLeagues,
   fetchSleeperUserLeague,
 } from "@/lib/api/sleeper/sleeper-api";
-import { createClient } from "../server";
-import {
-  getAuthenticatedUserId,
-  getAuthenticatedUserSleeperId,
-} from "./user-id";
+import { getAuthenticatedUserSleeperId } from "./user-id";
 import { League as ExternalLeague } from "@/types/external/League";
 import {
   League,
@@ -25,6 +21,7 @@ import {
   ScoringFormat,
   WaiverType,
 } from "@/types/shared/enums";
+import { SupabaseClient } from "@supabase/supabase-js";
 
 export interface WeekCalculations {
   regularSeasonWeeks: number;
@@ -326,11 +323,11 @@ async function fetchAllLeagueHistories(newLeagues: ExternalLeague[]): Promise<{
   return { leagues: allUserLeagues, brokenLeagueHistory };
 }
 
-export async function populateAllLeaguesForUser(): Promise<string[]> {
-  const supabase = await createClient();
-
-  const authUserId = await getAuthenticatedUserId();
-  const sleeperUserId = await getAuthenticatedUserSleeperId();
+export async function populateAllLeaguesForUser(
+  supabase: SupabaseClient,
+  authId: string
+): Promise<string[]> {
+  const sleeperUserId = await getAuthenticatedUserSleeperId(supabase, authId);
 
   const currentUserLeagues = await fetchSleeperUserCurrentLeagues(
     sleeperUserId
@@ -342,7 +339,10 @@ export async function populateAllLeaguesForUser(): Promise<string[]> {
   const currentLeagueIds = currentUserLeagues.map((l) => l.league_id);
 
   // 3) Figure out which of those top-levels are brand new to our DB
-  const leagueIdsToInsert = await getLeaguesToInsert(currentLeagueIds);
+  const leagueIdsToInsert = await getLeaguesToInsert(
+    supabase,
+    currentLeagueIds
+  );
 
   const leaguesToIngest = currentUserLeagues.filter((l) =>
     leagueIdsToInsert.includes(l.league_id)
@@ -377,16 +377,17 @@ export async function populateAllLeaguesForUser(): Promise<string[]> {
     (currId) => !leagueIdsToInsert.includes(currId)
   );
   const existingHistoryLeagueIds = await getAllLeagueIdsInHistory(
+    supabase,
     existingTopLevelIds
   );
 
   const userLeagueUpsertRows = [
     ...ingestedLeaguesWithHistory.map((league) => ({
-      user_id: authUserId,
+      user_id: authId,
       league_id: league.league_id,
     })),
     ...existingHistoryLeagueIds.map((league_id) => ({
-      user_id: authUserId,
+      user_id: authId,
       league_id,
     })),
   ];
@@ -403,9 +404,10 @@ export async function populateAllLeaguesForUser(): Promise<string[]> {
   return ingestedLeaguesWithHistory.map((l) => l.league_id);
 }
 
-export async function populateAllLeagueMembersForUser(leagueIds: string[]) {
-  const supabase = await createClient();
-
+export async function populateAllLeagueMembersForUser(
+  supabase: SupabaseClient,
+  leagueIds: string[]
+) {
   await Promise.all(
     leagueIds.map(async (leagueId) => {
       try {
@@ -459,11 +461,10 @@ export async function generateLeagueMemberRows(
 }
 
 export async function getLeaguesToInsert(
+  supabase: SupabaseClient,
   leagueIds: string[]
 ): Promise<string[]> {
   if (leagueIds.length === 0) return [];
-
-  const supabase = await createClient();
 
   const { data: existing, error } = await supabase
     .from("leagues")
@@ -471,46 +472,18 @@ export async function getLeaguesToInsert(
     .in("league_id", leagueIds);
 
   if (error) {
-    throw new Error();
+    throw new Error(`getLeaguesToInsert failed: ${error.message}`);
   }
 
   const existingSet = new Set(existing.map((r) => r.league_id));
   return leagueIds.filter((id) => !existingSet.has(id));
 }
 
-export async function getAllLeaguesForUser(): Promise<string[]> {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    throw new Error("User must be authenticated to fetch user leagues.");
-  }
-
-  const { data, error } = await supabase
-    .from("user_leagues")
-    .select("league_id")
-    .eq("user_id", user.id);
-
-  if (error) {
-    throw new Error(
-      `Failed to getAllLeaguesForUser for authenticated user: ${error.message}`
-    );
-  }
-
-  const rows = data ?? [];
-  return rows.map((row) => row.league_id);
-}
-
 export async function getAllLeagueIdsInHistory(
+  supabase: SupabaseClient,
   leagueIds: string[]
 ): Promise<string[]> {
   if (leagueIds.length === 0) return [];
-
-  const supabase = await createClient();
 
   const { data: groupRows } = await supabase
     .from("leagues")

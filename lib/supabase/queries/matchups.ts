@@ -3,7 +3,6 @@ import {
   fetchSleeperLeaguePlayoffBracket,
   fetchSleeperNFLState,
 } from "@/lib/api/sleeper/sleeper-api";
-import { createClient } from "../server";
 import pLimit from "p-limit";
 import {
   MatchupPlayerRow,
@@ -17,7 +16,7 @@ import {
   BracketReference,
   PlayoffMatchup,
 } from "@/types/external/PlayoffMatchup";
-import { PostgrestError } from "@supabase/supabase-js";
+import { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { League, RoundName } from "@/types/internal/League";
 import { PlayoffRoundType, typedEntries } from "@/types/shared/enums";
 
@@ -172,9 +171,10 @@ function mapBracketToRows(
   });
 }
 
-export async function populateAllMatchupsForUser(leagueIds: string[]) {
-  const supabase = await createClient();
-
+export async function populateAllMatchupsForUser(
+  supabase: SupabaseClient,
+  leagueIds: string[]
+) {
   const limit = pLimit(3);
   const nflState = await fetchSleeperNFLState();
   if (!nflState) throw new Error("Issue fetching NFL State.");
@@ -348,9 +348,10 @@ function resolvePreviousMatchupUUID(
   return matchupLookup[keyA] ?? matchupLookup[keyB] ?? null;
 }
 
-export async function populateAllPlayoffMatchupsForUser(leagueIds: string[]) {
-  const supabase = await createClient();
-
+export async function populateAllPlayoffMatchupsForUser(
+  supabase: SupabaseClient,
+  leagueIds: string[]
+) {
   const nflState = await fetchSleeperNFLState();
   if (!nflState) throw new Error("Issue fetching NFL State.");
 
@@ -399,6 +400,7 @@ export async function populateAllPlayoffMatchupsForUser(leagueIds: string[]) {
             : leagueRow.total_weeks;
 
         const playoffMatchups = await getPlayoffMatchupsForLeague(
+          supabase,
           leagueId,
           leagueRow.playoff_week_start,
           lastCompletedWeek
@@ -450,11 +452,11 @@ export async function populateAllPlayoffMatchupsForUser(leagueIds: string[]) {
 }
 
 export async function getPlayoffMatchupsForLeague(
+  supabase: SupabaseClient,
   leagueId: string,
   playoffWeekStart: number,
   endWeek: number
 ): Promise<MatchupRow[]> {
-  const supabase = await createClient();
   const { data, error } = await supabase
     .from("matchups")
     .select("*")

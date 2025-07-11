@@ -1,28 +1,25 @@
 "use client";
 
+import { ApiResponse, fetchJson } from "@/types/api/api";
+
 export default function Home() {
-  const handleClick = async () => {
+  const handleClick = async (): Promise<void> => {
     try {
-      const res = await fetch("/api/createNewUser", {
+      const data = await fetchJson<ApiResponse>("/api/createNewUser", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sleeperUsername: "asotzrocky" }),
       });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Server responded ${res.status}: ${text}`);
-      }
 
-      const data = await res.json();
       if (data.success) {
         alert("User created successfully.");
       } else {
-        alert(`Error: ${data.error}`);
+        alert(`Error: ${data.error ?? "Unknown error"}`);
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("handleClick error:", err);
-      alert(`Error: ${err.message}`);
+      const message = err instanceof Error ? err.message : String(err);
+      alert(`Error: ${message}`);
     }
   };
 
