@@ -22,10 +22,11 @@ export default function ChatComponent({
   messages,
 }: ChatComponentProps) {
   const [welcomeContent, setWelcomeContent] = useState("");
-  const welcomeMessage = `Hi ${username}, I've analyzed your Sleeper league from top to bottom. Ask me anything — from trade advice to roast-worthy team takes.`;
 
   useEffect(() => {
     if (!startTyping) return;
+    const welcomeMessage = `Hi ${username}, I've analyzed your Sleeper league from top to bottom. Ask me anything — from trade advice to roast-worthy team takes.`;
+
     const welcomeChunks = welcomeMessage.split(" ");
     let currentContent = "";
     let index = 0;
@@ -40,7 +41,7 @@ export default function ChatComponent({
     }, 150);
 
     return () => clearInterval(interval);
-  }, [startTyping]);
+  }, [startTyping, username]);
 
   return (
     <AIConversation className="relative size-full rounded-lg border">

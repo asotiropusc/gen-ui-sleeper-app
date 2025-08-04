@@ -2,14 +2,7 @@
 	Installed from https://reactbits.dev/ts/default/
 */
 
-/* eslint-disable react/no-unknown-property */
-import React, {
-  forwardRef,
-  //   useMemo,
-  useRef,
-  useLayoutEffect,
-  useEffect,
-} from "react";
+import React, { forwardRef, useRef, useLayoutEffect, useEffect } from "react";
 import { Canvas, useFrame, useThree, RootState } from "@react-three/fiber";
 import { Color, Mesh, ShaderMaterial } from "three";
 import { IUniform } from "three";
@@ -152,17 +145,6 @@ const Silk: React.FC<SilkProps> = ({
 }) => {
   const meshRef = useRef<Mesh>(null);
 
-  //   const uniforms = useMemo<SilkUniforms>(
-  //     () => ({
-  //       uSpeed: { value: speed },
-  //       uScale: { value: scale },
-  //       uNoiseIntensity: { value: noiseIntensity },
-  //       uColor: { value: new Color(...hexToNormalizedRGB(color)) },
-  //       uRotation: { value: rotation },
-  //       uTime: { value: 0 },
-  //     }),
-  //     [speed, scale, noiseIntensity, color, rotation],
-  //   );
   const uniformsRef = useRef<SilkUniforms>({
     uSpeed: { value: speed },
     uScale: { value: scale },

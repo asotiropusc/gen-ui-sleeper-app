@@ -4,7 +4,14 @@
 
 "use client";
 
-import { ElementType, useEffect, useRef, useState, createElement } from "react";
+import {
+  ElementType,
+  useEffect,
+  useRef,
+  useState,
+  createElement,
+  useMemo,
+} from "react";
 import { gsap } from "gsap";
 
 interface TextTypeProps {
@@ -57,13 +64,10 @@ const TextType = ({
   const cursorRef = useRef<HTMLSpanElement>(null);
   const containerRef = useRef<HTMLElement>(null);
 
-  const textArray = Array.isArray(text) ? text : [text];
-
-  const getRandomSpeed = () => {
-    if (!variableSpeed) return typingSpeed;
-    const { min, max } = variableSpeed;
-    return Math.random() * (max - min) + min;
-  };
+  const textArray = useMemo(
+    () => (Array.isArray(text) ? text : [text]),
+    [text],
+  );
 
   const getCurrentTextColor = () => {
     if (textColors.length === 0) return "#ffffff";
@@ -105,6 +109,12 @@ const TextType = ({
     if (!isVisible) return;
 
     let timeout: NodeJS.Timeout;
+
+    const getRandomSpeed = () => {
+      if (!variableSpeed) return typingSpeed;
+      const { min, max } = variableSpeed;
+      return Math.random() * (max - min) + min;
+    };
 
     const currentText = textArray[currentTextIndex];
     const processedText = reverseMode

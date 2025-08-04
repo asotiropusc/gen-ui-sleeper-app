@@ -25,7 +25,6 @@ export type AISourcesTriggerProps = ComponentProps<
 };
 
 export const AISourcesTrigger = ({
-  className,
   count,
   children,
   ...props
