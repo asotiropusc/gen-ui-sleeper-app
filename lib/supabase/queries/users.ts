@@ -1,15 +1,16 @@
 import { fetchSleeperUser } from "@/lib/api/sleeper/sleeper-api";
+import { UsernameNotFoundError } from "@/lib/errors";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 export async function upsertUser(
   supabase: SupabaseClient,
   authId: string,
-  username: string
+  username: string,
 ) {
   const sleeperUser = await fetchSleeperUser(username);
 
   if (!sleeperUser) {
-    throw new Error("Failed to fetch sleeper user.");
+    throw new UsernameNotFoundError(username);
   }
 
   const { error } = await supabase.from("users").upsert(
@@ -21,7 +22,7 @@ export async function upsertUser(
         avatar_id: sleeperUser.avatar,
       },
     ],
-    { onConflict: "id" }
+    { onConflict: "id" },
   );
 
   if (error) {

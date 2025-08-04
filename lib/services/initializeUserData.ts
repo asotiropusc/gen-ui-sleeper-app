@@ -9,6 +9,7 @@ import {
 } from "../supabase/queries/matchups";
 import { upsertAllPlayers } from "../supabase/queries/players";
 import { upsertUser } from "../supabase/queries/users";
+import { UsernameNotFoundError } from "../errors";
 
 type InitializeUserDataResults =
   | {
@@ -26,7 +27,7 @@ type InitializeUserDataResults =
 export async function initializeUserData(
   supabase: SupabaseClient,
   authId: string,
-  sleeperUsername: string
+  sleeperUsername: string,
 ): Promise<InitializeUserDataResults> {
   try {
     // 1. Ensure the user record exists
@@ -49,12 +50,16 @@ export async function initializeUserData(
       await populateAllPlayoffMatchupsForUser(supabase, newLeagueIds);
     } else {
       console.info(
-        `initializeUserData: no new leagues to insert. Skipping members & matchups population.`
+        `initializeUserData: no new leagues to insert. Skipping members & matchups population.`,
       );
     }
 
     return { success: true };
   } catch (err) {
+    if (err instanceof UsernameNotFoundError) {
+      throw err;
+    }
+
     return {
       success: false,
       error: (err as Error).message || "Unknown error during initialization",
